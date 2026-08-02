@@ -1,0 +1,29 @@
+services:
+  dj-bot:
+    build: .
+    container_name: dj-bot
+    restart: unless-stopped
+
+    # Segredos ficam so aqui, fora da imagem.
+    env_file: .env
+
+    # Sem "ports": o bot so abre conexoes de saida (gateway e voz do Discord).
+    # Nada para conflitar com as portas dos apps do Umbrel.
+
+    volumes:
+      # Volume nomeado (nao bind mount) para o binario do yt-dlp: assim
+      # "npm run ytdlp:update" sobrevive a recriacoes do container, e segue a
+      # recomendacao do Umbrel para dados de containers customizados.
+      # Na primeira subida o Docker semeia o volume com o binario da imagem.
+      - ytdlp-bin:/app/bin
+
+    # Rotacao de log importa em Umbrel com cartao SD: sem isso o json-file
+    # cresce sem limite.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ytdlp-bin:

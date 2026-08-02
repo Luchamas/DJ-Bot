@@ -1,0 +1,57 @@
+name: Publicar imagem no GHCR
+
+# Toda vez que o codigo muda no main, a imagem e reconstruida e publicada.
+# O Portainer so precisa puxar - nunca mais precisa de SSH para atualizar.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.env.example'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # O nome do repositorio tem letra maiuscula (Luchamas/DJ-Bot) e o Docker
+      # so aceita minusculas em nome de imagem. Sem isso o push falha.
+      - name: Definir nome da imagem em minusculas
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      # QEMU permite construir a variante arm64 (Raspberry Pi) numa maquina x86.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Token automatico do proprio Actions: nao e preciso criar segredo.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          # amd64 = Umbrel Home / mini PC; arm64 = Raspberry Pi.
+          # Se voce sabe qual e o seu, deixe so um: o build fica bem mais rapido.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Resumo
+        run: |
+          echo "Imagem publicada: \`${IMAGE}:latest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Use esse nome no campo \`image:\` da stack do Portainer." >> "$GITHUB_STEP_SUMMARY"

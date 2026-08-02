@@ -1,0 +1,10 @@
+# Segredos nunca entram na imagem: o .env e injetado pelo compose em runtime.
+.env
+
+node_modules
+bin
+.git
+.gitignore
+*.log
+README.md
+HOSTING.md

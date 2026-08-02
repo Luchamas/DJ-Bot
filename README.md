@@ -120,6 +120,17 @@ Discord. Se as etapas de Spotify estiverem no `.env`, ele também testa álbum e
 | `/leave` | Sai do canal de voz |
 | `/help` | Lista os comandos |
 
+## Hospedagem
+
+Para rodar 24/7 num servidor Umbrel (Raspberry Pi ou Umbrel Home), veja o [HOSTING.md](HOSTING.md).
+O bot não expõe nenhuma porta, então não conflita com os apps do Umbrel.
+
+| Arquivo | Para quê |
+| --- | --- |
+| `Dockerfile` | a imagem, usada pelos dois caminhos |
+| `docker-compose.yml` | subir por SSH (recomendado) — tem `build:` |
+| `portainer-stack.yml` | colar no Portainer — usa imagem pronta, sem `build:` |
+
 ## Estrutura
 
 ```

@@ -1,0 +1,61 @@
+# Stack do Portainer (Web editor ou Repository).
+#
+# IMPORTANTE: nao ha "build:" aqui de proposito. O Portainer nao constroi imagem
+# a partir de um Dockerfile - nem pelo editor web, nem apontando para um
+# repositorio Git. A imagem precisa vir pronta.
+#
+# Por padrao ela vem do GHCR, publicada pelo GitHub Actions a cada push no main
+# (.github/workflows/docker-publish.yml). Assim o Portainer nunca precisa de SSH.
+#
+# Se preferir construir a imagem a mao no proprio Umbrel, troque a linha "image"
+# por "dj-bot:latest" e acrescente "pull_policy: never" logo abaixo.
+#
+# Os valores ${...} sao preenchidos na secao "Environment variables" da propria
+# tela do Portainer - o token nao fica escrito neste arquivo.
+
+services:
+  dj-bot:
+    image: ghcr.io/luchamas/dj-bot:latest
+
+    container_name: dj-bot
+    restart: unless-stopped
+
+    # Sem "ports": o bot so abre conexoes de saida para o Discord.
+
+    environment:
+      # --- obrigatorios ---
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+
+      # --- opcionais (deixe em branco no Portainer para usar o padrao) ---
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+
+      DEFAULT_VOLUME: ${DEFAULT_VOLUME:-100}
+      LEAVE_ON_EMPTY_SECONDS: ${LEAVE_ON_EMPTY_SECONDS:-120}
+      LEAVE_ON_END_SECONDS: ${LEAVE_ON_END_SECONDS:-180}
+      MAX_QUEUE_SIZE: ${MAX_QUEUE_SIZE:-500}
+      MAX_PLAYLIST_SIZE: ${MAX_PLAYLIST_SIZE:-200}
+
+      PRESENCE_ENABLED: ${PRESENCE_ENABLED:-true}
+      PRESENCE_UPDATE_SECONDS: ${PRESENCE_UPDATE_SECONDS:-15}
+      PRESENCE_IDLE_TEXT: ${PRESENCE_IDLE_TEXT:-/play}
+
+      YTDLP_COOKIES: ${YTDLP_COOKIES:-}
+      YTDLP_COOKIES_FROM_BROWSER: ${YTDLP_COOKIES_FROM_BROWSER:-}
+
+    volumes:
+      # Volume nomeado, como o Umbrel recomenda para containers customizados:
+      # mantem o yt-dlp atualizado mesmo quando o container e recriado.
+      - ytdlp-bin:/app/bin
+
+    # No Raspberry Pi o log vai para o cartao SD; sem limite ele cresce sem fim.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ytdlp-bin:
