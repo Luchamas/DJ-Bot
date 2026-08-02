@@ -1,3 +1,14 @@
+# ============================================================================
+#  NAO USE ESTE ARQUIVO NO PORTAINER.
+#
+#  Ele e para subir por SSH ("docker compose up -d" dentro de ~/dj-bot).
+#  No Portainer ele falha duas vezes: o "env_file" abaixo procura um .env que
+#  nao existe na pasta da stack, e o "build:" nao e suportado.
+#
+#  No Portainer, use portainer-stack.yml - inclusive no campo "Compose path"
+#  do modo Repository, que vem preenchido com "docker-compose.yml" por padrao.
+# ============================================================================
+
 services:
   dj-bot:
     build: .
