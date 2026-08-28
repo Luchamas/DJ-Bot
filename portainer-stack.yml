@@ -45,6 +45,13 @@ services:
       YTDLP_COOKIES: ${YTDLP_COOKIES:-}
       YTDLP_COOKIES_FROM_BROWSER: ${YTDLP_COOKIES_FROM_BROWSER:-}
 
+    # Descomente se o container ficar sem DNS depois de um reboot
+    # (erro EAI_AGAIN no log) e reiniciar o container/daemon nao resolver.
+    # Ignora o DNS do host e do Docker, indo direto no Cloudflare/Google.
+    # dns:
+    #   - 1.1.1.1
+    #   - 8.8.8.8
+
     volumes:
       # Volume nomeado, como o Umbrel recomenda para containers customizados:
       # mantem o yt-dlp atualizado mesmo quando o container e recriado.

@@ -11,6 +11,7 @@ import { assertConfig, config, hasSpotifyCredentials } from './config.js';
 import { errorEmbed } from './lib/embeds.js';
 import { UserError } from './lib/guards.js';
 import { loadCommands } from './lib/load-commands.js';
+import { loginComRetentativa, codigoDeRede } from './lib/login.js';
 import { startPresence, stopPresence } from './lib/presence.js';
 import { destroyAllQueues, getQueue } from './lib/queue.js';
 import { checkYtdlp } from './lib/ytdlp.js';
@@ -113,4 +114,24 @@ process.on('unhandledRejection', (reason) => console.error('[unhandledRejection]
 
 if (process.argv.includes('--deps')) console.log(generateDependencyReport());
 
-await client.login(config.token);
+try {
+  await loginComRetentativa(client, config.token, {
+    aoRepetir: ({ tentativa, tentativas, codigo, segundos }) =>
+      console.warn(
+        `[login] rede indisponivel (${codigo}). ` +
+          `Tentativa ${tentativa}/${tentativas}, nova em ${segundos}s...`,
+      ),
+  });
+} catch (error) {
+  const codigo = codigoDeRede(error);
+  if (codigo === 'EAI_AGAIN' || codigo === 'ENOTFOUND') {
+    console.error(
+      `\n[login] nao consegui resolver o DNS de discord.com (${codigo}).\n` +
+        '  O container esta sem DNS funcional: confira se o roteador voltou.\n' +
+        '  Veja a secao "EAI_AGAIN" no README para forcar um DNS no compose.',
+    );
+  } else {
+    console.error(`\n[login] falhou: ${error.message}`);
+  }
+  process.exit(1);
+}

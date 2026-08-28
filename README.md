@@ -337,6 +337,7 @@ src/
    ├─ spotify.js         # API do Spotify (client credentials) + fallback oEmbed
    ├─ resolver.js        # link/busca → lista de faixas; Spotify → YouTube
    ├─ queue.js           # fila e player por servidor
+   ├─ login.js           # conexão com retentativa (DNS lento após boot)
    ├─ presence.js        # status do bot com a faixa e o tempo
    ├─ bus.js             # eventos internos (fila → presence)
    ├─ guards.js          # validações (canal de voz, permissões)
@@ -350,6 +351,31 @@ src/
 
 O **Compose path** da stack está apontando para `docker-compose.yml` (o padrão do campo). Troque para
 `portainer-stack.yml`.
+
+**`EAI_AGAIN discord.com` (típico depois de queda de energia)**
+
+`EAI_AGAIN` é falha de **DNS**: o container não conseguiu resolver `discord.com`. Não é token
+inválido nem Discord fora do ar.
+
+A causa comum num servidor doméstico é ordem de boot — o Umbrel liga mais rápido que o roteador, e o
+container tenta conectar antes de existir DNS na rede. O bot agora tolera isso sozinho: tenta de
+novo com espera crescente (2s, 4s, 8s, 16s, 32s, depois 60s), cobrindo cerca de 5 minutos. No log
+aparece `[login] rede indisponivel (EAI_AGAIN). Tentativa 1/10...`.
+
+Se mesmo assim persistir, o problema é o Docker, não o bot. Por ordem:
+
+1. Confirme que o servidor tem internet: `ssh umbrel@umbrel.local "ping -c2 discord.com"`.
+2. Se o host resolve mas o container não, o daemon do Docker está com resolvedores velhos, lidos no
+   boot. Reinicie o daemon: `sudo systemctl restart docker`.
+3. Se você roda AdGuard/Pi-hole no próprio Umbrel, há uma dependência circular: o bot depende de um
+   DNS que sobe depois dele. Nesse caso force um DNS no container, acrescentando ao serviço em
+   `portainer-stack.yml`:
+
+   ```yaml
+       dns:
+         - 1.1.1.1
+         - 8.8.8.8
+   ```
 
 **Portainer: `No such image: dj-bot:latest`**
 

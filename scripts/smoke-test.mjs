@@ -5,11 +5,12 @@
  *   npm run smoke
  *
  * Util principalmente quando o YouTube muda a extracao e o bot para de tocar:
- * se a etapa [7] falhar, rode "npm run ytdlp:update".
+ * se a etapa [10] falhar, rode "npm run ytdlp:update".
  */
 import { nowPlayingEmbed, addedTrackEmbed } from '../src/lib/embeds.js';
 import { formatDuration, progressBar } from '../src/lib/format.js';
 import { loadCommands } from '../src/lib/load-commands.js';
+import { ehErroDeRede, loginComRetentativa } from '../src/lib/login.js';
 import { buildActivity } from '../src/lib/presence.js';
 import { resolveQuery, resolveStreamUrl } from '../src/lib/resolver.js';
 import { hasSpotifyCredentials } from '../src/config.js';
@@ -86,14 +87,84 @@ console.log('\n[4] presence (texto do status)');
   }
 }
 
-console.log('\n[5] yt-dlp');
+console.log('\n[5] login com retentativa (queda de energia / DNS lento)');
+{
+  const erroDns = Object.assign(new Error('getaddrinfo EAI_AGAIN discord.com'), {
+    code: 'EAI_AGAIN',
+  });
+  // O undici embrulha falhas de rede: o codigo real fica em error.cause.
+  const erroEmbrulhado = Object.assign(new TypeError('fetch failed'), {
+    cause: { code: 'ENOTFOUND' },
+  });
+  const erroToken = Object.assign(new Error('An invalid token was provided.'), {
+    code: 'TokenInvalid',
+  });
+
+  if (ehErroDeRede(erroDns)) ok('EAI_AGAIN classificado como rede');
+  else fail('EAI_AGAIN', new Error('nao foi classificado como erro de rede'));
+
+  if (ehErroDeRede(erroEmbrulhado)) ok('erro embrulhado pelo undici (cause) detectado');
+  else fail('cause', new Error('nao olhou dentro de error.cause'));
+
+  if (!ehErroDeRede(erroToken)) ok('token invalido NAO conta como rede');
+  else fail('token', new Error('token invalido seria repetido a toa'));
+
+  // Temporizador injetado: o teste nao espera de verdade.
+  const esperas = [];
+  const esperar = (ms) => {
+    esperas.push(ms / 1000);
+    return Promise.resolve();
+  };
+
+  let tentativas = 0;
+  const clienteQueVolta = {
+    login: async () => {
+      if (++tentativas < 4) throw erroDns;
+      return 'pronto';
+    },
+  };
+  await loginComRetentativa(clienteQueVolta, 'token', { esperar });
+  ok('reconecta quando a rede volta', `${tentativas} tentativas, esperou ${esperas.join('s, ')}s`);
+
+  let tentativasToken = 0;
+  const clienteTokenRuim = {
+    login: async () => {
+      tentativasToken++;
+      throw erroToken;
+    },
+  };
+  try {
+    await loginComRetentativa(clienteTokenRuim, 'token', { esperar });
+  } catch {
+    /* esperado */
+  }
+  if (tentativasToken === 1) ok('token invalido falha de primeira, sem insistir');
+  else fail('token invalido', new Error(`tentou ${tentativasToken} vezes`));
+
+  let tentativasOffline = 0;
+  const clienteOffline = {
+    login: async () => {
+      tentativasOffline++;
+      throw erroDns;
+    },
+  };
+  try {
+    await loginComRetentativa(clienteOffline, 'token', { tentativas: 5, esperar });
+    fail('offline', new Error('deveria ter desistido'));
+  } catch {
+    if (tentativasOffline === 5) ok('desiste apos o limite', '5 tentativas');
+    else fail('offline', new Error(`${tentativasOffline} tentativas`));
+  }
+}
+
+console.log('\n[6] yt-dlp');
 try {
   ok('versao', await checkYtdlp());
 } catch (error) {
   fail('yt-dlp', error);
 }
 
-console.log('\n[6] resolvers');
+console.log('\n[7] resolvers');
 const cases = [
   ['busca por texto', 'engenheiros do hawaii infinita highway'],
   ['video do youtube', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
@@ -133,7 +204,7 @@ for (const [label, input] of cases) {
   }
 }
 
-console.log('\n[7] spotify -> youtube (resolucao tardia)');
+console.log('\n[8] spotify -> youtube (resolucao tardia)');
 try {
   console.log(`  streamUrl antes de tocar: ${spotifyTrack.streamUrl}`);
   ok('resolvido no youtube', await resolveStreamUrl(spotifyTrack));
@@ -141,7 +212,7 @@ try {
   fail('resolveStreamUrl', error);
 }
 
-console.log('\n[8] embeds');
+console.log('\n[9] embeds');
 try {
   const fakeQueue = {
     current: { ...spotifyTrack, requestedBy: '@user' },
@@ -156,7 +227,7 @@ try {
   fail('embeds', error);
 }
 
-console.log('\n[9] pipeline de audio (yt-dlp -> ffmpeg -> PCM)');
+console.log('\n[10] pipeline de audio (yt-dlp -> ffmpeg -> PCM)');
 await new Promise((resolve) => {
   const started = Date.now();
   const { stream, destroy, getError } = createAudioStream(spotifyTrack.streamUrl);
