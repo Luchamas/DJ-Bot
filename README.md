@@ -354,28 +354,55 @@ O **Compose path** da stack está apontando para `docker-compose.yml` (o padrão
 
 **`EAI_AGAIN discord.com` (típico depois de queda de energia)**
 
-`EAI_AGAIN` é falha de **DNS**: o container não conseguiu resolver `discord.com`. Não é token
-inválido nem Discord fora do ar.
+`EAI_AGAIN` é falha ao resolver `discord.com` — mas atenção: **nem sempre a causa é DNS**. Resolver
+nome é a primeira coisa que o bot faz, então qualquer falha de rede aparece com essa cara.
 
-A causa comum num servidor doméstico é ordem de boot — o Umbrel liga mais rápido que o roteador, e o
-container tenta conectar antes de existir DNS na rede. O bot agora tolera isso sozinho: tenta de
-novo com espera crescente (2s, 4s, 8s, 16s, 32s, depois 60s), cobrindo cerca de 5 minutos. No log
-aparece `[login] rede indisponivel (EAI_AGAIN). Tentativa 1/10...`.
+O bot tolera sozinho o caso benigno, em que o container sobe antes de o roteador terminar de ligar:
+tenta de novo com espera crescente por ~5 minutos, logando `[login] rede indisponivel...`.
 
-Se mesmo assim persistir, o problema é o Docker, não o bot. Por ordem:
+Se passar disso, descubra **em qual camada** está o problema antes de mexer em DNS. No Console do
+container (Portainer → Containers → `dj-bot` → Console, usuário `node`):
 
-1. Confirme que o servidor tem internet: `ssh umbrel@umbrel.local "ping -c2 discord.com"`.
-2. Se o host resolve mas o container não, o daemon do Docker está com resolvedores velhos, lidos no
-   boot. Reinicie o daemon: `sudo systemctl restart docker`.
-3. Se você roda AdGuard/Pi-hole no próprio Umbrel, há uma dependência circular: o bot depende de um
-   DNS que sobe depois dele. Nesse caso force um DNS no container, acrescentando ao serviço em
-   `portainer-stack.yml`:
+```sh
+node -e "require('net').connect(443,'162.159.136.232').on('connect',()=>{console.log('TCP OK');process.exit(0)}).on('error',e=>console.log('FALHOU:',e.code))"
+```
 
-   ```yaml
-       dns:
-         - 1.1.1.1
-         - 8.8.8.8
-   ```
+O IP é o do `discord.com`, então o teste **pula o DNS**.
+
+| Resultado | Significa | Correção |
+| --- | --- | --- |
+| `TCP OK` | rede funciona, é só resolução de nome | `dns: [1.1.1.1, 8.8.8.8]` no serviço |
+| `FALHOU` rápido | container sem rota | recriar a rede da stack |
+| **fica travado** | tráfego descartado em silêncio | bridge do Docker quebrada → `network_mode: host` |
+
+O terceiro caso foi o que aconteceu neste servidor depois de uma queda de energia: o host tinha
+internet normal (`ping discord.com` respondia), mas nenhum container alcançava nada. É o sintoma
+clássico de as regras de iptables/nftables do Docker terem sido perdidas ou sobrescritas no boot —
+e por isso reiniciar o Umbrel não resolveu: se um firewall sobe depois do Docker e limpa as regras,
+o problema volta a cada reinício.
+
+A solução foi `network_mode: host` (já aplicado no `portainer-stack.yml`): sem bridge e sem NAT, o
+container usa a pilha de rede do próprio Umbrel e não depende dessas regras. Como o bot não escuta
+em porta nenhuma, não há conflito com os apps do Umbrel.
+
+Para confirmar em qual modo o container está:
+
+```sh
+cat /etc/resolv.conf
+```
+
+`nameserver 127.0.0.11` com linhas `ExtServers`/`Overrides` = bridge. Nameserver do seu roteador,
+sem essas linhas = rede do host.
+
+**Portainer: mudança no compose não surte efeito**
+
+"Pull and redeploy" numa stack de repositório pode atualizar **apenas a imagem**, mantendo o compose
+antigo — inclusive alterações de rede, volume ou variáveis. O sintoma é o container seguir com o
+comportamento velho mesmo depois de um `git push` bem-sucedido.
+
+Confirme olhando algo que a sua mudança deveria alterar (o `/etc/resolv.conf` acima, por exemplo).
+Se não mudou, **apague a stack e crie de novo** apontando para o repositório. É o único jeito
+confiável de forçar a releitura do `portainer-stack.yml`.
 
 **Portainer: `No such image: dj-bot:latest`**
 
