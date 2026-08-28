@@ -45,12 +45,20 @@ services:
       YTDLP_COOKIES: ${YTDLP_COOKIES:-}
       YTDLP_COOKIES_FROM_BROWSER: ${YTDLP_COOKIES_FROM_BROWSER:-}
 
-    # DNS fixo: o Docker deste host ficou sem resolvedor valido apos um reboot
-    # (erro EAI_AGAIN no log) e o container herdava essa configuracao quebrada.
-    # Aqui ele vai direto no Cloudflare/Google, sem depender do host.
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
+    # Rede do host, e nao a bridge do compose.
+    #
+    # O resolvedor interno do Docker (127.0.0.11), usado em qualquer rede criada
+    # por compose, parou de repassar consultas neste servidor depois de um
+    # desligamento sujo - o container dava EAI_AGAIN mesmo com "dns:" definido,
+    # porque a consulta passa pelo resolvedor interno antes de sair.
+    #
+    # Na rede do host o container usa o /etc/resolv.conf do proprio Umbrel, que
+    # resolve normalmente. Como o bot nao escuta em porta nenhuma, compartilhar
+    # a rede nao traz conflito.
+    #
+    # Depois de reiniciar o daemon do Docker (ou o Umbrel), da para voltar para
+    # a bridge apagando esta linha.
+    network_mode: host
 
     volumes:
       # Volume nomeado, como o Umbrel recomenda para containers customizados:
