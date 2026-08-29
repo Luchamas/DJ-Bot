@@ -33,6 +33,11 @@ export const config = {
     // Hardware lento (Raspberry Pi com cartao SD) precisa de mais folga: o
     // binario do yt-dlp e um pacote PyInstaller que se descompacta a cada uso.
     timeoutMs: Math.max(10, int(process.env.YTDLP_TIMEOUT_SECONDS, 60)) * 1000,
+    // O Python do yt-dlp nao faz Happy Eyeballs: com IPv6 configurado mas sem
+    // rota, ele tenta IPv6 primeiro e fica pendurado ate o timeout - enquanto
+    // ping e fetch do Node funcionam normalmente, mascarando o problema.
+    // Desligue com YTDLP_FORCE_IPV4=false em rede que dependa de IPv6.
+    forceIpv4: process.env.YTDLP_FORCE_IPV4 !== 'false',
     cookies: process.env.YTDLP_COOKIES?.trim() || null,
     cookiesFromBrowser: process.env.YTDLP_COOKIES_FROM_BROWSER?.trim() || null,
   },
