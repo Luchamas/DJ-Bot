@@ -30,6 +30,9 @@ export const config = {
 
   ytdlp: {
     path: process.env.YTDLP_PATH?.trim() || null,
+    // Hardware lento (Raspberry Pi com cartao SD) precisa de mais folga: o
+    // binario do yt-dlp e um pacote PyInstaller que se descompacta a cada uso.
+    timeoutMs: Math.max(10, int(process.env.YTDLP_TIMEOUT_SECONDS, 60)) * 1000,
     cookies: process.env.YTDLP_COOKIES?.trim() || null,
     cookiesFromBrowser: process.env.YTDLP_COOKIES_FROM_BROWSER?.trim() || null,
   },

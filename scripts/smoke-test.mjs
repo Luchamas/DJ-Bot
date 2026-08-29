@@ -159,7 +159,9 @@ console.log('\n[5] login com retentativa (queda de energia / DNS lento)');
 
 console.log('\n[6] yt-dlp');
 try {
-  ok('versao', await checkYtdlp());
+  const { versao, ms } = await checkYtdlp();
+  ok('versao', `${versao} (arrancou em ${(ms / 1000).toFixed(1)}s)`);
+  if (ms > 5000) console.log('  --   arranque lento: aumente YTDLP_TIMEOUT_SECONDS neste hardware');
 } catch (error) {
   fail('yt-dlp', error);
 }

@@ -27,7 +27,7 @@ function baseArgs() {
 }
 
 /** Executa o yt-dlp e devolve o stdout como texto. */
-function run(args, { timeout = 60_000 } = {}) {
+function run(args, { timeout = config.ytdlp.timeoutMs } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(ytdlpPath(), [...baseArgs(), ...args], {
       windowsHide: true,
@@ -38,7 +38,13 @@ function run(args, { timeout = 60_000 } = {}) {
     let stderr = '';
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new Error('yt-dlp demorou demais para responder.'));
+      reject(
+        new Error(
+          `yt-dlp nao respondeu em ${Math.round(timeout / 1000)}s. ` +
+            'Em hardware lento aumente YTDLP_TIMEOUT_SECONDS; ' +
+            'se persistir, verifique se o container alcanca o YouTube.',
+        ),
+      );
     }, timeout);
 
     child.stdout.setEncoding('utf8');
@@ -120,7 +126,7 @@ export async function fetchTrack(url) {
 export async function fetchPlaylist(url, limit) {
   const stdout = await run(
     ['--dump-json', '--flat-playlist', '--yes-playlist', '--playlist-end', String(limit), url],
-    { timeout: 120_000 },
+    { timeout: config.ytdlp.timeoutMs * 2 },
   );
 
   const entries = parseJsonLines(stdout);
@@ -211,8 +217,18 @@ export function createAudioStream(url) {
   };
 }
 
-/** Checa se o binario esta acessivel; usado no boot para avisar cedo. */
+/**
+ * Checa se o binario responde, medindo quanto ele leva para arrancar.
+ *
+ * O tempo importa: o executavel do yt-dlp e um pacote PyInstaller que se
+ * descompacta a cada execucao, e em hardware lento isso sozinho pode consumir
+ * boa parte do timeout das consultas. Ver esse numero no boot evita caçar
+ * problema de rede quando a causa e so lentidao.
+ */
 export async function checkYtdlp() {
-  const stdout = await run(['--version'], { timeout: 15_000 });
-  return stdout.trim();
+  const inicio = Date.now();
+  const stdout = await run(['--version'], {
+    timeout: Math.min(config.ytdlp.timeoutMs, 30_000),
+  });
+  return { versao: stdout.trim(), ms: Date.now() - inicio };
 }

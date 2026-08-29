@@ -38,7 +38,9 @@ client.once(Events.ClientReady, async (readyClient) => {
   console.log(`   Spotify: ${hasSpotifyCredentials ? 'API configurada' : 'sem credenciais (so faixas avulsas)'}`);
 
   try {
-    console.log(`   yt-dlp: ${await checkYtdlp()}`);
+    const { versao, ms } = await checkYtdlp();
+    const lento = ms > 5000 ? '  <- lento; considere aumentar YTDLP_TIMEOUT_SECONDS' : '';
+    console.log(`   yt-dlp: ${versao} (arrancou em ${(ms / 1000).toFixed(1)}s)${lento}`);
   } catch (error) {
     console.warn(`⚠️  ${error.message}`);
   }
