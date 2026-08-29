@@ -21,6 +21,7 @@ export function ytdlpPath() {
 function baseArgs() {
   const args = ['--no-warnings', '--no-cache-dir', '--ignore-config'];
   if (config.ytdlp.forceIpv4) args.push('-4');
+  if (config.ytdlp.jsRuntime) args.push('--js-runtimes', config.ytdlp.jsRuntime);
   if (config.ytdlp.cookies) args.push('--cookies', config.ytdlp.cookies);
   else if (config.ytdlp.cookiesFromBrowser)
     args.push('--cookies-from-browser', config.ytdlp.cookiesFromBrowser);

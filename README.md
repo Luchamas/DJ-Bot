@@ -409,6 +409,39 @@ confiável de forçar a releitura do `portainer-stack.yml`.
 A stack está pedindo uma imagem local que não existe. Ou o Actions ainda não publicou no GHCR, ou o
 `image:` foi trocado para a variante local sem que a imagem fosse construída no servidor.
 
+**`/play` responde "yt-dlp nao respondeu em 60s"**
+
+O yt-dlp trava na primeira requisição ao YouTube, enquanto ping, `fetch` do Node e o próprio
+Discord funcionam normalmente. Quase sempre é **IPv6 configurado sem rota**.
+
+A diferença é que o Node 20+ usa *Happy Eyeballs* — tenta IPv6 e IPv4 em paralelo e fica com o
+primeiro que responder, mascarando o IPv6 quebrado. O Python do yt-dlp tenta o primeiro endereço
+que o `getaddrinfo` devolve e espera o timeout inteiro.
+
+Para confirmar, dentro do container:
+
+```sh
+timeout 60 /app/bin/yt-dlp -4 --simulate "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+```
+
+Se com `-4` responder rápido, é isso. O bot já força IPv4 por padrão (`YTDLP_FORCE_IPV4`); em rede
+que dependa de IPv6, desligue com `YTDLP_FORCE_IPV4=false`.
+
+Para ver exatamente onde ele empaca, sem perder a saída no buffer quando o processo é morto:
+
+```sh
+PYTHONUNBUFFERED=1 timeout 60 /app/bin/yt-dlp -v --print-traffic --simulate "URL" > /tmp/y.log 2>&1; tail -25 /tmp/y.log
+```
+
+**`No supported JavaScript runtime could be found`**
+
+O YouTube exige resolver desafios em JavaScript para liberar os formatos, e o yt-dlp só habilita o
+Deno sozinho. Sem runtime vêm formatos faltando e, no download, `403 Forbidden`.
+
+Não é preciso instalar Deno: a imagem já roda em Node, e o bot passa `--js-runtimes node` por
+padrão (`YTDLP_JS_RUNTIME`). No log do yt-dlp isso aparece como `[jsc:node] Solving JS challenges
+using node`.
+
 **`yt-dlp nao encontrado`**
 
 ```bash

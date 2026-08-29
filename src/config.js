@@ -38,6 +38,11 @@ export const config = {
     // ping e fetch do Node funcionam normalmente, mascarando o problema.
     // Desligue com YTDLP_FORCE_IPV4=false em rede que dependa de IPv6.
     forceIpv4: process.env.YTDLP_FORCE_IPV4 !== 'false',
+    // O YouTube exige resolver desafios em JavaScript para liberar os formatos,
+    // e o yt-dlp so habilita o Deno por padrao. Como o bot ja roda em Node, e
+    // so apontar para ele: sem isso vem "some formats may be missing" e, mais
+    // adiante, 403 no download. Vazio desativa.
+    jsRuntime: process.env.YTDLP_JS_RUNTIME?.trim() ?? 'node',
     cookies: process.env.YTDLP_COOKIES?.trim() || null,
     cookiesFromBrowser: process.env.YTDLP_COOKIES_FROM_BROWSER?.trim() || null,
   },
